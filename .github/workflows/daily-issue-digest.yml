@@ -12,25 +12,10 @@ jobs:
     permissions:
       contents: read
     env:
-      # Comma-separated GitHub search queries (each will be queried and results merged)
-      # Reference: https://docs.github.com/search-github/searching-on-github/searching-issues-and-pull-requests
-      SEARCH_QUERIES: >-
-        org:your-org is:issue is:open no:assignee label:"priority: high" -label:"in progress",
-        user:your-username is:issue is:open no:assignee label:P0,
-        repo:owner/repo is:issue is:open no:assignee label:P1 -label:wip
-
-      # High priority labels (case-insensitive, comma-separated)
-      PRIORITY_LABELS: "priority: high,P0,P1,urgent"
-
-      # Labels to exclude (comma-separated)
-      EXCLUDE_LABELS: "in progress,wip,blocked"
-
-      # Usernames to exclude if assigned (comma-separated)
-      EXCLUDE_ASSIGNEES: "your-username,dependabot"
-
-
-      # Maximum number of issues per run (after merging results)
-      MAX_ISSUES: "100"
+      SEARCH_QUERIES: ${{ secrets.SEARCH_QUERIES }}
+      PRIORITY_LABELS: ${{ secrets.PRIORITY_LABELS }}
+      EXCLUDE_LABELS: ${{ secrets.EXCLUDE_LABELS }}
+      MAX_ISSUES: "10"
 
     steps:
       - name: Checkout
