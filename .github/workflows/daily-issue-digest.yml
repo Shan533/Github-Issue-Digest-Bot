@@ -12,7 +12,7 @@ jobs:
     permissions:
       contents: read
     env:
-      SEARCH_QUERIES: ${{ secrets.SEARCH_QUERIES }}
+      SEARCH_QUERIES: ${{ secrets.SEARCH_QUERIES || 'is:issue is:open no:assignee label:"good first issue"' }}
       PRIORITY_LABELS: ${{ secrets.PRIORITY_LABELS }}
       EXCLUDE_LABELS: ${{ secrets.EXCLUDE_LABELS }}
       MAX_ISSUES: "10"
