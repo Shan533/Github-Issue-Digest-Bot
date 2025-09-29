@@ -20,7 +20,7 @@ jobs:
         repo:owner/repo is:issue is:open no:assignee label:P1 -label:wip
 
       # High priority labels (case-insensitive, comma-separated)
-      PRIORITY_LABELS: priority: high,P0,P1,urgent
+      PRIORITY_LABELS: "priority: high,P0,P1,urgent"
 
       # Labels to exclude (comma-separated)
       EXCLUDE_LABELS: in progress,wip,blocked
