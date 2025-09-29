@@ -45,6 +45,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests python-dateutil
 
+      - name: Set date env (UTC)
+        run: echo "TODAY=$(date -u +'%Y-%m-%d')" >> $GITHUB_ENV
+        
       - name: Generate digest HTML
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -63,7 +66,7 @@ jobs:
           server_port: ${{ secrets.SMTP_PORT }}
           username: ${{ secrets.SMTP_USERNAME }}
           password: ${{ secrets.SMTP_PASSWORD }}
-          subject: "[Daily GitHub Issue Digest] $(date -u +"%Y-%m-%d")"
+          subject: "[Daily GitHub Issue Digest] ${{ env.TODAY }}"
           to: ${{ secrets.EMAIL_TO }}
           from: ${{ secrets.EMAIL_FROM }}
           html_body: file://digest.html
