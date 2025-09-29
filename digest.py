@@ -37,9 +37,7 @@ def fetch_issues(token: str, queries: list[str], limit: int) -> list[dict]:
             resp.raise_for_status()
             data = resp.json()
             for item in data.get("items", []):
-                if item.get("pull_request"):
-                    # Skip PRs, only keep issues
-                    continue
+                # Include both issues and PRs
                 results[item["html_url"]] = item
                 if len(results) >= limit:
                     break
@@ -85,41 +83,80 @@ def keep_issue(issue: dict, priority_labels: set[str], exclude_labels: set[str],
 
 def render_html(issues: list[dict]) -> str:
     now = datetime.now(timezone.utc)
+    
+    # Separate PRs and Issues
+    prs = [item for item in issues if item.get("pull_request")]
+    issues_only = [item for item in issues if not item.get("pull_request")]
+    
     head = f"""
 <!doctype html>
 <html><head><meta charset='utf-8'/>
-<title>Daily GitHub Issue Digest</title>
+<title>Daily GitHub Issues & PRs Digest</title>
 <style>
   body {{ font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif; line-height:1.5; color:#111; }}
-  .issue {{ border-bottom:1px solid #eee; padding:12px 0; }}
+  .item {{ border-bottom:1px solid #eee; padding:12px 0; }}
+  .pr {{ border-left: 3px solid #28a745; padding-left: 8px; }}
+  .issue {{ border-left: 3px solid #007bff; padding-left: 8px; }}
   .repo {{ color:#555; font-size:12px; }}
   .labels span {{ display:inline-block; margin-right:6px; padding:2px 6px; border:1px solid #ddd; border-radius:10px; font-size:12px; }}
   .meta {{ color:#666; font-size:12px; }}
+  .type-badge {{ display:inline-block; padding:2px 6px; border-radius:10px; font-size:11px; font-weight:bold; margin-right:8px; }}
+  .pr-badge {{ background:#28a745; color:white; }}
+  .issue-badge {{ background:#007bff; color:white; }}
+  .section {{ margin-bottom:20px; }}
+  .section h3 {{ margin-bottom:10px; color:#333; }}
 </style>
 </head><body>
-<h2>Daily GitHub Issue Digest</h2>
+<h2>Daily GitHub Issues & PRs Digest</h2>
 <p class='meta'>Generated at {now.strftime('%Y-%m-%d %H:%M UTC')}</p>
 """
 
     if not issues:
-        return head + "<p>No matching issues today 🎉</p></body></html>"
+        return head + "<p>No matching issues or PRs today 🎉</p></body></html>"
 
     parts = [head]
-    for it in issues:
-        title = it.get("title", "(no title)")
-        url = it.get("html_url", "")
-        repo_full = it.get("repository_url", "").replace(f"{GH_API}/repos/", "")
-        labels = label_names(it)
-        updated_at = dtparser.parse(it.get("updated_at"))
-        created_at = dtparser.parse(it.get("created_at"))
-        parts.append(
-            f"<div class='issue'>"
-            f"<div><a href='{url}' target='_blank'>{title}</a></div>"
-            f"<div class='repo'>{repo_full}</div>"
-            f"<div class='labels'>{''.join(f'<span>{l}</span>' for l in labels)}</div>"
-            f"<div class='meta'>Created: {created_at.strftime('%Y-%m-%d')} · Updated: {updated_at.strftime('%Y-%m-%d')}</div>"
-            f"</div>"
-        )
+    
+    # Render PRs section
+    if prs:
+        parts.append('<div class="section">')
+        parts.append(f'<h3>📋 Pull Requests ({len(prs)})</h3>')
+        for pr in prs:
+            title = pr.get("title", "(no title)")
+            url = pr.get("html_url", "")
+            repo_full = pr.get("repository_url", "").replace(f"{GH_API}/repos/", "")
+            labels = label_names(pr)
+            updated_at = dtparser.parse(pr.get("updated_at"))
+            created_at = dtparser.parse(pr.get("created_at"))
+            parts.append(
+                f"<div class='item pr'>"
+                f"<div><span class='type-badge pr-badge'>PR</span><a href='{url}' target='_blank'>{title}</a></div>"
+                f"<div class='repo'>{repo_full}</div>"
+                f"<div class='labels'>{''.join(f'<span>{l}</span>' for l in labels)}</div>"
+                f"<div class='meta'>Created: {created_at.strftime('%Y-%m-%d')} · Updated: {updated_at.strftime('%Y-%m-%d')}</div>"
+                f"</div>"
+            )
+        parts.append('</div>')
+    
+    # Render Issues section
+    if issues_only:
+        parts.append('<div class="section">')
+        parts.append(f'<h3>🐛 Issues ({len(issues_only)})</h3>')
+        for issue in issues_only:
+            title = issue.get("title", "(no title)")
+            url = issue.get("html_url", "")
+            repo_full = issue.get("repository_url", "").replace(f"{GH_API}/repos/", "")
+            labels = label_names(issue)
+            updated_at = dtparser.parse(issue.get("updated_at"))
+            created_at = dtparser.parse(issue.get("created_at"))
+            parts.append(
+                f"<div class='item issue'>"
+                f"<div><span class='type-badge issue-badge'>ISSUE</span><a href='{url}' target='_blank'>{title}</a></div>"
+                f"<div class='repo'>{repo_full}</div>"
+                f"<div class='labels'>{''.join(f'<span>{l}</span>' for l in labels)}</div>"
+                f"<div class='meta'>Created: {created_at.strftime('%Y-%m-%d')} · Updated: {updated_at.strftime('%Y-%m-%d')}</div>"
+                f"</div>"
+            )
+        parts.append('</div>')
 
     parts.append("</body></html>")
     return "".join(parts)
@@ -135,22 +172,40 @@ def main():
         print("GH_TOKEN is required", file=sys.stderr)
         sys.exit(1)
 
-    queries = env_list("SEARCH_QUERIES")
+    # Get queries for both issues and PRs
+    issue_queries = env_list("SEARCH_QUERIES")
+    pr_queries = env_list("PR_QUERIES")
+    
     priority_labels = to_lower_set(env_list("PRIORITY_LABELS"))
     exclude_labels = to_lower_set(env_list("EXCLUDE_LABELS"))
     exclude_assignees = to_lower_set(env_list("EXCLUDE_ASSIGNEES"))
     max_issues = int(os.getenv("MAX_ISSUES", "100"))
+    max_prs = int(os.getenv("MAX_PRS", "100"))
 
-    issues = fetch_issues(token, queries, max_issues)
-    filtered = [it for it in issues if keep_issue(it, priority_labels, exclude_labels, exclude_assignees)]
+    all_items = []
+    
+    # Fetch issues
+    if issue_queries:
+        issues = fetch_issues(token, issue_queries, max_issues)
+        filtered_issues = [it for it in issues if not it.get("pull_request") and keep_issue(it, priority_labels, exclude_labels, exclude_assignees)]
+        all_items.extend(filtered_issues)
+    
+    # Fetch PRs
+    if pr_queries:
+        prs = fetch_issues(token, pr_queries, max_prs)
+        filtered_prs = [it for it in prs if it.get("pull_request") and keep_issue(it, priority_labels, exclude_labels, exclude_assignees)]
+        all_items.extend(filtered_prs)
 
     # Sort final results by updated date descending
-    filtered.sort(key=lambda x: x.get("updated_at", ""), reverse=True)
+    all_items.sort(key=lambda x: x.get("updated_at", ""), reverse=True)
 
-    html = render_html(filtered)
+    html = render_html(all_items)
     with open(args.out, "w", encoding="utf-8") as f:
         f.write(html)
-    print(f"Wrote {args.out} with {len(filtered)} issues.")
+    
+    pr_count = len([item for item in all_items if item.get("pull_request")])
+    issue_count = len([item for item in all_items if not item.get("pull_request")])
+    print(f"Wrote {args.out} with {issue_count} issues and {pr_count} PRs.")
 
 
 if __name__ == "__main__":

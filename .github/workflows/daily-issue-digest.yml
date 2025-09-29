@@ -13,9 +13,12 @@ jobs:
       contents: read
     env:
       SEARCH_QUERIES: ${{ secrets.SEARCH_QUERIES || 'is:issue is:open no:assignee label:"good first issue"' }}
-      PRIORITY_LABELS: ${{ secrets.PRIORITY_LABELS }}
-      EXCLUDE_LABELS: ${{ secrets.EXCLUDE_LABELS }}
+      PRIORITY_LABELS: ${{ secrets.PRIORITY_LABELS || 'priority:p0,priority:p1,enhancement,feature,performance' }}
+      EXCLUDE_LABELS: ${{ secrets.EXCLUDE_LABELS || 'low-priority' }}
+      PR_QUERIES: ${{ secrets.PR_QUERIES || 'is:pr is:open review-requested:@me' }}
+      EXCLUDE_ASSIGNEES: ${{ secrets.EXCLUDE_ASSIGNEES || '' }}
       MAX_ISSUES: "10"
+      MAX_PRS: "10"
 
     steps:
       - name: Checkout
@@ -38,10 +41,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           SEARCH_QUERIES: ${{ env.SEARCH_QUERIES }}
+          PR_QUERIES: ${{ env.PR_QUERIES }}
           PRIORITY_LABELS: ${{ env.PRIORITY_LABELS }}
           EXCLUDE_LABELS: ${{ env.EXCLUDE_LABELS }}
           EXCLUDE_ASSIGNEES: ${{ env.EXCLUDE_ASSIGNEES }}
           MAX_ISSUES: ${{ env.MAX_ISSUES }}
+          MAX_PRS: ${{ env.MAX_PRS }}
         run: |
           python digest.py --out digest.html
 
