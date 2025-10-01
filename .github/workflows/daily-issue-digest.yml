@@ -15,7 +15,7 @@ jobs:
       SEARCH_QUERIES: ${{ secrets.SEARCH_QUERIES || 'is:issue is:open no:assignee label:"good first issue"' }}
       PRIORITY_LABELS: ${{ secrets.PRIORITY_LABELS || 'priority:p0,priority:p1,enhancement,feature,performance' }}
       EXCLUDE_LABELS: ${{ secrets.EXCLUDE_LABELS || 'low-priority' }}
-      PR_QUERIES: ${{ secrets.PR_QUERIES || 'is:pr is:open review-requested:@me' }}
+      PR_QUERIES: ${{ secrets.PR_QUERIES || 'is:pr is:open' }}
       EXCLUDE_ASSIGNEES: ${{ secrets.EXCLUDE_ASSIGNEES || '' }}
       MAX_ISSUES: "10"
       MAX_PRS: "10"

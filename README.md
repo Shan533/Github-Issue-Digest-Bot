@@ -28,12 +28,18 @@ Go to your repository Settings > Secrets and variables > Actions, and add the re
 
 **Optional secrets (with defaults):**
 - `SEARCH_QUERIES` - Custom issue search queries
-- `PR_QUERIES` - Custom PR search queries  
+- `PR_QUERIES` - Custom PR search queries (default: `is:pr is:open`)
 - `PRIORITY_LABELS` - Priority labels to filter by
 - `EXCLUDE_LABELS` - Labels to exclude
 - `EXCLUDE_ASSIGNEES` - Assignees to exclude
 
 📋 **See [example.env](example.env) for detailed configuration examples and all available options.**
+
+### Common PR Query Examples:
+- `is:pr is:open` - All open PRs
+- `is:pr is:open author:your-username` - Your open PRs
+- `is:pr is:open assignee:your-username` - PRs assigned to you
+- `repo:your-org/your-repo is:pr is:open` - PRs in specific repository
 
 ### 3. Enable Workflow
 

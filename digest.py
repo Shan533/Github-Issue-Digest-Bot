@@ -61,6 +61,37 @@ def label_names(issue: dict) -> list[str]:
     return [lbl.get("name", "") for lbl in issue.get("labels", [])]
 
 
+def get_priority_score(issue: dict) -> int:
+    """Get priority score for sorting (lower number = higher priority)"""
+    labels = label_names(issue)
+    labels_lower = [l.lower() for l in labels]
+    
+    # Priority order: P0 > P1 > P2 > others
+    if any("priority:p0" in l or l == "p0" for l in labels_lower):
+        return 0
+    elif any("priority:p1" in l or l == "p1" for l in labels_lower):
+        return 1
+    elif any("priority:p2" in l or l == "p2" for l in labels_lower):
+        return 2
+    else:
+        return 3  # No priority label
+
+
+def get_priority_label(issue: dict) -> str:
+    """Get priority label for display"""
+    labels = label_names(issue)
+    labels_lower = [l.lower() for l in labels]
+    
+    if any("priority:p0" in l or l == "p0" for l in labels_lower):
+        return "P0"
+    elif any("priority:p1" in l or l == "p1" for l in labels_lower):
+        return "P1"
+    elif any("priority:p2" in l or l == "p2" for l in labels_lower):
+        return "P2"
+    else:
+        return ""
+
+
 def keep_issue(issue: dict, priority_labels: set[str], exclude_labels: set[str], exclude_assignees: set[str]) -> bool:
     names = label_names(issue)
     names_lower = to_lower_set(names)
@@ -103,8 +134,13 @@ def render_html(issues: list[dict]) -> str:
   .type-badge {{ display:inline-block; padding:2px 6px; border-radius:10px; font-size:11px; font-weight:bold; margin-right:8px; }}
   .pr-badge {{ background:#28a745; color:white; }}
   .issue-badge {{ background:#007bff; color:white; }}
+  .priority-badge {{ display:inline-block; padding:2px 6px; border-radius:10px; font-size:10px; font-weight:bold; margin-right:6px; }}
+  .priority-p0 {{ background:#dc3545; color:white; }}
+  .priority-p1 {{ background:#fd7e14; color:white; }}
+  .priority-p2 {{ background:#ffc107; color:black; }}
   .section {{ margin-bottom:20px; }}
   .section h3 {{ margin-bottom:10px; color:#333; }}
+  .item-title {{ display:flex; align-items:center; margin-bottom:4px; }}
 </style>
 </head><body>
 <h2>Daily GitHub Issues & PRs Digest</h2>
@@ -127,9 +163,12 @@ def render_html(issues: list[dict]) -> str:
             labels = label_names(pr)
             updated_at = dtparser.parse(pr.get("updated_at"))
             created_at = dtparser.parse(pr.get("created_at"))
+            priority = get_priority_label(pr)
+            priority_badge = f"<span class='priority-badge priority-{priority.lower()}'>{priority}</span>" if priority else ""
+            
             parts.append(
                 f"<div class='item pr'>"
-                f"<div><span class='type-badge pr-badge'>PR</span><a href='{url}' target='_blank'>{title}</a></div>"
+                f"<div class='item-title'><span class='type-badge pr-badge'>PR</span>{priority_badge}<a href='{url}' target='_blank'>{title}</a></div>"
                 f"<div class='repo'>{repo_full}</div>"
                 f"<div class='labels'>{''.join(f'<span>{l}</span>' for l in labels)}</div>"
                 f"<div class='meta'>Created: {created_at.strftime('%Y-%m-%d')} · Updated: {updated_at.strftime('%Y-%m-%d')}</div>"
@@ -148,9 +187,12 @@ def render_html(issues: list[dict]) -> str:
             labels = label_names(issue)
             updated_at = dtparser.parse(issue.get("updated_at"))
             created_at = dtparser.parse(issue.get("created_at"))
+            priority = get_priority_label(issue)
+            priority_badge = f"<span class='priority-badge priority-{priority.lower()}'>{priority}</span>" if priority else ""
+            
             parts.append(
                 f"<div class='item issue'>"
-                f"<div><span class='type-badge issue-badge'>ISSUE</span><a href='{url}' target='_blank'>{title}</a></div>"
+                f"<div class='item-title'><span class='type-badge issue-badge'>ISSUE</span>{priority_badge}<a href='{url}' target='_blank'>{title}</a></div>"
                 f"<div class='repo'>{repo_full}</div>"
                 f"<div class='labels'>{''.join(f'<span>{l}</span>' for l in labels)}</div>"
                 f"<div class='meta'>Created: {created_at.strftime('%Y-%m-%d')} · Updated: {updated_at.strftime('%Y-%m-%d')}</div>"
@@ -196,8 +238,20 @@ def main():
         filtered_prs = [it for it in prs if it.get("pull_request") and keep_issue(it, priority_labels, exclude_labels, exclude_assignees)]
         all_items.extend(filtered_prs)
 
-    # Sort final results by updated date descending
-    all_items.sort(key=lambda x: x.get("updated_at", ""), reverse=True)
+    # Sort final results by priority first (ascending), then by updated date descending
+    def sort_key(x):
+        priority_score = get_priority_score(x)
+        # Convert timestamp to sortable number for descending order
+        timestamp = x.get("updated_at", "2025-01-01T00:00:00Z")
+        try:
+            from dateutil import parser as dtparser
+            dt = dtparser.parse(timestamp)
+            time_num = int(dt.timestamp())
+            return (priority_score, -time_num)  # Negative for descending time
+        except:
+            return (priority_score, 0)
+    
+    all_items.sort(key=sort_key)
 
     html = render_html(all_items)
     with open(args.out, "w", encoding="utf-8") as f:
